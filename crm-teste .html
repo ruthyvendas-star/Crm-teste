@@ -609,14 +609,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, getDoc, setDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-// Config do projeto Firebase "crm-vendas-8c65f".
+// Config do projeto Firebase "crm-testes-firebase-adm-ruthy" - CRM TESTE
 const firebaseConfig = {
-  apiKey: "AIzaSyCRRFyirEMT7akehelicbwCvgQlbi0JLRI",
-  authDomain: "crm-vendas-8c65f.firebaseapp.com",
-  projectId: "crm-vendas-8c65f",
-  storageBucket: "crm-vendas-8c65f.firebasestorage.app",
-  messagingSenderId: "783272563364",
-  appId: "1:783272563364:web:d063216bf8ba4815ec8c31"
+  apiKey: "AIzaSyBd6N8DMUv43tzF4LEHn1Hth0qYY3_6Czo",
+  authDomain: "crm-testes-firebase-adm-ruthy.firebaseapp.com",
+  projectId: "crm-testes-firebase-adm-ruthy",
+  storageBucket: "crm-testes-firebase-adm-ruthy.firebasestorage.app",
+  messagingSenderId: "482330243897",
+  appId: "1:6523302438897:web:e2e70a4d9760651de87ae8"
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -2177,22 +2177,73 @@ window.doLogout=async function(){
   await signOut(auth);
 };
 
-// CRM Teste - Inicializado sem autenticação
-console.log('CRM Teste: Inicializando...');
-console.log('currentUID:', currentUID);
+// CRM Teste - Sistema de Controle de Acesso
+// Admin: ruthy.vendas@gmail.com (acesso automático)
+// Outros: precisam de aprovação
 
-setTimeout(() => {
-  const overlay = document.getElementById('login-overlay');
-  if(overlay) overlay.style.display = 'none';
-  console.log('CRM Teste: Login overlay escondido');
-}, 50);
+const ADMIN_EMAIL = 'ruthy.vendas@gmail.com';
+let isAdminUser = false;
+let isAuthorizedUser = false;
 
-try {
-  console.log('CRM Teste: Chamando initApp()');
-  initApp();
-} catch(e) {
-  console.error('CRM Teste: Erro ao inicializar app:', e);
+async function checkUserPermission(uid, email) {
+  try {
+    // Admin sempre tem acesso
+    if (email === ADMIN_EMAIL) {
+      isAdminUser = true;
+      isAuthorizedUser = true;
+      return true;
+    }
+    
+    // Verificar se foi aprovado
+    const permRef = doc(db, 'users', uid, 'config', 'permission');
+    const permSnap = await getDoc(permRef);
+    
+    if (permSnap.exists() && permSnap.data().approved === true) {
+      isAuthorizedUser = true;
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.warn('Erro ao verificar permissão:', err);
+    return false;
+  }
 }
+
+function showAccessDenied(email) {
+  const overlay = document.getElementById('login-overlay');
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:28px 24px;max-width:400px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35);text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">🔒</div>
+      <h2 style="color:#A32D2D;margin-bottom:8px">Acesso Negado</h2>
+      <p style="color:#5A5751;margin-bottom:16px">Esse CRM de teste é restrito para usuários autorizados.</p>
+      <p style="color:#1E2430;font-weight:600;margin-bottom:8px;font-size:13px">${email}</p>
+      <p style="color:#5A5751;font-size:12px;margin-bottom:24px;line-height:1.4">Solicite permissão à administradora:<br/><strong>ruthy.vendas@gmail.com</strong></p>
+      <button onclick="doLogout()" style="width:100%;padding:10px;border-radius:8px;border:none;background:#1E2430;color:#fff;font-weight:600;font-size:13px;cursor:pointer">Sair</button>
+    </div>
+  `;
+  overlay.style.display = 'flex';
+}
+
+// Monitorar login com verificação de permissões
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUID = user.uid;
+    currentUserEmail = user.email;
+    
+    const hasAccess = await checkUserPermission(currentUID, currentUserEmail);
+    
+    if (hasAccess) {
+      document.getElementById('login-overlay').style.display = 'none';
+      initApp();
+    } else {
+      showAccessDenied(currentUserEmail);
+    }
+  } else {
+    currentUID = null;
+    currentUserEmail = null;
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+});
 </script>
 </body>
 </html>
